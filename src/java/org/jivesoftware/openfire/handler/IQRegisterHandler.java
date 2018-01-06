@@ -78,6 +78,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
     private static boolean registrationEnabled;
     private static boolean canChangePassword;
     private static Element probeResult;
+    private static boolean oAuthEnabled; // Habilitador
 
     private UserManager userManager;
     private RosterManager rosterManager;
@@ -97,6 +98,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         super.initialize(server);
         userManager = server.getUserManager();
         rosterManager = server.getRosterManager();
+        oAuthEnabled = true;
 
         if (probeResult == null) {
             // Create the basic element of the probeResult which contains the basic registration
@@ -106,10 +108,11 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             probeResult.addElement("password");
             probeResult.addElement("email");
             probeResult.addElement("name");
+            //probeResult.addElement("oauth_token");
 
             // Create the registration form to include in the probeResult. The form will include
             // the basic information plus name and visibility of name and email.
-            // TODO Future versions could allow plugin modules to add new fields to the form 
+            // TODO Future versions could allow plugin modules to add new fields to the form
             final DataForm registrationForm = new DataForm(DataForm.Type.form);
             registrationForm.setTitle("XMPP Client Registration");
             registrationForm.addInstruction("Please provide the following information");
@@ -117,7 +120,14 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             final FormField fieldForm = registrationForm.addField();
             fieldForm.setVariable("FORM_TYPE");
             fieldForm.setType(FormField.Type.hidden);
-            fieldForm.addValue("jabber:iq:register");
+            if (oAuthEnabled){
+                fieldForm.addValue("urn:xmpp:xdata:signature:oauth1");
+            }
+            else {
+                fieldForm.addValue("jabber:iq:register");
+
+            }
+
 
             final FormField fieldUser = registrationForm.addField();
             fieldUser.setVariable("username");
@@ -125,7 +135,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             fieldUser.setLabel("Username");
             fieldUser.setRequired(true);
 
-            final FormField fieldName = registrationForm.addField(); 
+            final FormField fieldName = registrationForm.addField();
             fieldName.setVariable("name");
             fieldName.setType(FormField.Type.text_single);
             fieldName.setLabel("Full name");
@@ -147,13 +157,63 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             fieldPwd.setLabel("Password");
             fieldPwd.setRequired(true);
 
+            /* ########   INICIO    ########## */
+            if (oAuthEnabled) {
+                final FormField fieldOAuthVersion = registrationForm.addField();
+                fieldOAuthVersion.setVariable("oauth_version");
+                fieldOAuthVersion.setType(FormField.Type.hidden);
+                fieldOAuthVersion.addValue("1.0");
+
+                final FormField fieldOAuthSignatureMethod = registrationForm.addField();
+                fieldOAuthSignatureMethod.setVariable("oauth_signature_method");
+                fieldOAuthSignatureMethod.setType(FormField.Type.hidden);
+                fieldOAuthSignatureMethod.addValue("HMAC-SHA1");
+
+                final FormField fieldOAuthToken = registrationForm.addField();
+                fieldOAuthToken.setVariable("oauth_token");
+                fieldOAuthToken.setType(FormField.Type.text_single);
+                fieldOAuthToken.setLabel("OAuth Token");
+                fieldOAuthToken.setRequired(true);
+
+                final FormField fieldOAuthSecretToken = registrationForm.addField();
+                fieldOAuthSecretToken.setVariable("oauth_token_secret");
+                fieldOAuthSecretToken.setType(FormField.Type.text_single);
+                fieldOAuthSecretToken.setRequired(true);
+
+                final FormField fieldOAuthNonce = registrationForm.addField();
+                fieldOAuthNonce.setVariable("oauth_nonce");
+                fieldOAuthNonce.setType(FormField.Type.hidden);
+                fieldOAuthNonce.addValue("");
+                fieldOAuthNonce.setRequired(true);
+
+                final FormField fieldOAuthTimestamp = registrationForm.addField();
+                fieldOAuthTimestamp.setVariable("oauth_timestamp");
+                fieldOAuthTimestamp.setType(FormField.Type.hidden);
+                fieldOAuthTimestamp.addValue("");
+                fieldOAuthTimestamp.setRequired(true);
+
+                final FormField fieldOAuthConsumerKey = registrationForm.addField();
+                fieldOAuthConsumerKey.setVariable("oauth_consumer_key");
+                fieldOAuthConsumerKey.setType(FormField.Type.hidden);
+                fieldOAuthConsumerKey.addValue("");
+                fieldOAuthConsumerKey.setRequired(true);
+
+                final FormField fieldOAuthSignature = registrationForm.addField();
+                fieldOAuthSignature.setVariable("oauth_signature");
+                fieldOAuthSignature.setType(FormField.Type.hidden);
+                fieldOAuthSignature.addValue("");
+                fieldOAuthSignature.setRequired(true);
+            }
+            /* ########   FIN    ########## */
+
+
             // Add the registration form to the probe result.
             probeResult.add(registrationForm.getElement());
         }
-        
+
         JiveGlobals.migrateProperty("register.inband");
         JiveGlobals.migrateProperty("register.password");
-        
+
         // See if in-band registration should be enabled (default is true).
         registrationEnabled = JiveGlobals.getBooleanProperty("register.inband", true);
         // See if users can change their passwords (default is true).
@@ -167,9 +227,9 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         // If no session was found then answer an error (if possible)
         if (session == null) {
             Log.error("Error during registration. Session not found in " +
-                    sessionManager.getPreAuthenticatedKeys() +
-                    " for key " +
-                    packet.getFrom());
+                sessionManager.getPreAuthenticatedKeys() +
+                " for key " +
+                packet.getFrom());
             // This error packet will probably won't make it through
             reply = IQ.createResultIQ(packet);
             reply.setChildElement(packet.getChildElement().createCopy());
@@ -193,7 +253,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                         currentRegistration.element("username").setText(user.getUsername());
                         currentRegistration.element("password").setText("");
                         currentRegistration.element("email")
-                                .setText(user.getEmail() == null ? "" : user.getEmail());
+                            .setText(user.getEmail() == null ? "" : user.getEmail());
                         currentRegistration.element("name").setText(user.getName());
 
                         Element form = currentRegistration.element(QName.get("x", "jabber:x:data"));
@@ -209,7 +269,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                             }
                             else if ("email".equals(field.attributeValue("var"))) {
                                 field.addElement("value")
-                                        .addText(user.getEmail() == null ? "" : user.getEmail());
+                                    .addText(user.getEmail() == null ? "" : user.getEmail());
                             }
                         }
                         reply.setChildElement(currentRegistration);
@@ -316,7 +376,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                     if (name != null && name.matches("\\s*")) {
                         name = null;
                     }
-                    
+
                     // So that we can set a more informative error message back, lets test this for
                     // stringprep validity now.
                     if (username != null) {
@@ -327,8 +387,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                         // Flag that indicates if the user is *only* changing his password
                         boolean onlyPassword = false;
                         if (iqElement.elements().size() == 2 &&
-                                iqElement.element("username") != null &&
-                                iqElement.element("password") != null) {
+                            iqElement.element("username") != null &&
+                            iqElement.element("password") != null) {
                             onlyPassword = true;
                         }
                         // If users are not allowed to change their password, return an error.
@@ -440,6 +500,14 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             session.process(reply);
         }
         return null;
+    }
+
+    public boolean isRegisterOAuthEnabled(){
+        return oAuthEnabled;
+    }
+
+    public void setRegisterOAuthEnabled(boolean allowed){
+        oAuthEnabled = allowed;
     }
 
     public boolean isInbandRegEnabled()
