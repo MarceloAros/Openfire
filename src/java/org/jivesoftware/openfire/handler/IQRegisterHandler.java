@@ -78,7 +78,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
     private static boolean registrationEnabled;
     private static boolean canChangePassword;
     private static Element probeResult;
-    private static boolean oAuthEnabled; // Habilitador
+    private static boolean oAuthEnabled; // Habilitador de soporte XEP-0348
 
     private UserManager userManager;
     private RosterManager rosterManager;

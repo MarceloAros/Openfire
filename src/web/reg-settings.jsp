@@ -175,7 +175,7 @@
     union.addAll( SASLAuthentication.getImplementedMechanisms() );
     pageContext.setAttribute( "saslConsideredOrImplementedMechanisms", union );
 %>
-
+    
 <p>
 <fmt:message key="reg.settings.info" />
 </p>
@@ -209,6 +209,54 @@
                 <td width="99%"><label for="rb02"><b><fmt:message key="reg.settings.disable" /></b> - <fmt:message key="reg.settings.not_auto_create" /></label></td>
             </tr>
         </table>
+        <!-- ################################################################################################## -->
+        <!-- INICIO: Modificación -->
+        <br>
+        <p><fmt:message key="reg.settings.description.OAUTH10A" /></p>
+        <table cellpadding="3" cellspacing="0" border="0">
+            <tr>
+                <td width="1%"><input type="radio" name="oAuthEnabled" value="true" id="rb11" ${inbandEnabled ? 'checked' : ''} ${readOnly ? 'disabled' : ''}></td>
+                <td width="99%"><label for="rb11"><b><fmt:message key="reg.settings.enable" /></b> -<fmt:message key="reg.settings.auto_create_user.oauth" /></label></td>
+            </tr>
+            <tr>
+                <td width="1%"><input type="radio" name="oAuthEnabled" value="false" id="rb12" ${inbandEnabled ?  '' : 'checked'} ${readOnly ? 'disabled' : ''}></td>
+                <td width="99%"><label for="rb12"><b><fmt:message key="reg.settings.disable" /></b> - <fmt:message key="reg.settings.not_auto_create_user.oauth" /></label></td>
+            </tr>
+        </table>
+        <br>
+        <b>Signature Key:</b>
+        <input type="text" size="15" maxlength="25" name="newSingtature">
+        <b>Signtature Secret Key:</b>
+        <input type="text" size="15" maxlength="25" name="newSingtatureKey">
+        <b>Amount of identities creation:</b>
+        <input type="text" size="15" maxlength="25" name="amountOfIdentities">
+        <a href="#">
+            <img src="images/add-16x16.gif" width="16" height="16" alt="<fmt:message key="" />" border="0">
+        </a>
+        <br><br>
+
+        <div class="jive-table">
+            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                    <th nowrap>Signature Key</th>
+                    <th nowrap>Signature Secret</th>
+                    <th nowrap>Authorized creations</th>
+                    <th nowrap>Used creations</th>
+                </tr>
+                <%-- INICIO: STUB--%>
+                <tr>
+                    <td>iu3298msasdr34s</td>
+                    <td>de7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9</td>
+                    <td>100</td>
+                    <td>3</td>
+                </tr>
+                <%-- FIN: STUB--%>
+            </table>
+        </div>
+        <%--TODO: lectura y escritura de campos de la base de datos--%>
+        <%--TODO: Soporte mutli-idoma--%>
+        <!-- FIN: Modificación -->
+        <!-- ################################################################################################## -->
     </admin:contentBox>
 
     <fmt:message key="reg.settings.change_password" var="change_password_boxtitle"/>
