@@ -175,7 +175,7 @@
     union.addAll( SASLAuthentication.getImplementedMechanisms() );
     pageContext.setAttribute( "saslConsideredOrImplementedMechanisms", union );
 %>
-    
+
 <p>
 <fmt:message key="reg.settings.info" />
 </p>
@@ -242,13 +242,15 @@
                     <th nowrap>Signature Secret</th>
                     <th nowrap>Authorized creations</th>
                     <th nowrap>Used creations</th>
+                    <th nowrap>Delete?</th>
                 </tr>
                 <%-- INICIO: STUB--%>
                 <tr>
                     <td>iu3298msasdr34s</td>
-                    <td>de7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9</td>
+                    <td>*****************************</td>
                     <td>100</td>
                     <td>3</td>
+                    <td><img src="images/delete-16x16.gif" width="16" height="16" alt="<fmt:message key="" />" border="0"></td>
                 </tr>
                 <%-- FIN: STUB--%>
             </table>

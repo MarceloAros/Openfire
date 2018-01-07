@@ -361,6 +361,14 @@ CREATE TABLE ofPubsubDefaultConf (
   PRIMARY KEY (serviceID, leaf)
 );
 
+CREATE TABLE ofOAuth (
+    consumerKey         VARCHAR(100)    NOT NULL,
+    signature           VARCHAR(100)    NOT NULL,
+    amountOfIdentities  INTEGER         NOT NULL,
+    identitiesCreates   INTEGER         NULL,
+    CONSTRAINT ofOAuth_pk PRIMARY KEY (consumerKey)
+);
+
 # Finally, insert default table values.
 
 INSERT INTO ofID (idType, id) VALUES (18, 1);

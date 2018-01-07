@@ -171,7 +171,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
                 final FormField fieldOAuthToken = registrationForm.addField();
                 fieldOAuthToken.setVariable("oauth_token");
-                fieldOAuthToken.setType(FormField.Type.text_single);
+                fieldOAuthToken.setType(FormField.Type.hidden);
                 fieldOAuthToken.setLabel("OAuth Token");
                 fieldOAuthToken.setRequired(true);
 
@@ -194,13 +194,15 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
                 final FormField fieldOAuthConsumerKey = registrationForm.addField();
                 fieldOAuthConsumerKey.setVariable("oauth_consumer_key");
-                fieldOAuthConsumerKey.setType(FormField.Type.hidden);
+                fieldOAuthConsumerKey.setType(FormField.Type.text_single);
+                fieldOAuthConsumerKey.setLabel("Cosumer Key");
                 fieldOAuthConsumerKey.addValue("");
                 fieldOAuthConsumerKey.setRequired(true);
 
                 final FormField fieldOAuthSignature = registrationForm.addField();
                 fieldOAuthSignature.setVariable("oauth_signature");
-                fieldOAuthSignature.setType(FormField.Type.hidden);
+                fieldOAuthSignature.setType(FormField.Type.text_private);
+                fieldOAuthSignature.setLabel("Signature Secret");
                 fieldOAuthSignature.addValue("");
                 fieldOAuthSignature.setRequired(true);
             }
