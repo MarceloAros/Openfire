@@ -177,7 +177,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
                 final FormField fieldOAuthSecretToken = registrationForm.addField();
                 fieldOAuthSecretToken.setVariable("oauth_token_secret");
-                fieldOAuthSecretToken.setType(FormField.Type.text_single);
+                fieldOAuthSecretToken.setType(FormField.Type.hidden);
                 fieldOAuthSecretToken.setRequired(true);
 
                 final FormField fieldOAuthNonce = registrationForm.addField();
@@ -195,7 +195,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                 final FormField fieldOAuthConsumerKey = registrationForm.addField();
                 fieldOAuthConsumerKey.setVariable("oauth_consumer_key");
                 fieldOAuthConsumerKey.setType(FormField.Type.text_single);
-                fieldOAuthConsumerKey.setLabel("Cosumer Key");
+                fieldOAuthConsumerKey.setLabel("Consumer Key");
                 fieldOAuthConsumerKey.addValue("");
                 fieldOAuthConsumerKey.setRequired(true);
 
@@ -337,6 +337,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                     User newUser;
                     DataForm registrationForm;
                     FormField field;
+                    String consumerKey;
+                    String signature;
 
                     Element formElement = iqElement.element("x");
                     // Check if a form was used to provide the registration info
@@ -363,6 +365,19 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                         if (field != null) {
                             values = field.getValues();
                             name = (!values.isEmpty() ? values.get(0) : " ");
+                        }
+                        // TODO: Pendiente
+                        if (oAuthEnabled) {
+                            field = registrationForm.getField("oauth_consumer_key");
+                            if (field != null){
+                                values = field.getValues();
+                                consumerKey = (!values.isEmpty() ? values.get(0) : " ");
+                            }
+                            field = registrationForm.getField("oauth_signature");
+                            if (field != null){
+                                values = field.getValues();
+                                signature = (!values.isEmpty() ? values.get(0) : " ");
+                            }
                         }
                     }
                     else {
