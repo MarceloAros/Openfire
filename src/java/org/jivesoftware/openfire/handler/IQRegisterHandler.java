@@ -19,7 +19,10 @@ package org.jivesoftware.openfire.handler;
 import gnu.inet.encoding.Stringprep;
 import gnu.inet.encoding.StringprepException;
 
+import java.security.SecureRandom;
+import java.sql.Timestamp;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
@@ -83,6 +86,9 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
     private UserManager userManager;
     private RosterManager rosterManager;
 
+    private static byte[] oAuthToken, oAuthTokenSecret;
+    private static Timestamp oAuthTimestamp;
+
     private IQHandlerInfo info;
 
     /**
@@ -108,7 +114,15 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             probeResult.addElement("password");
             probeResult.addElement("email");
             probeResult.addElement("name");
-            //probeResult.addElement("oauth_token");
+            //
+            probeResult.addElement("oauth_version");
+            probeResult.addElement("oauth_signature_method");
+            probeResult.addElement("oauth_token");
+            probeResult.addElement("oauth_token_secret");
+            probeResult.addElement("oauth_nonce");
+            probeResult.addElement("oauth_timestamp");
+            probeResult.addElement("oauth_consumer_key");
+            probeResult.addElement("oauth_signature");
 
             // Create the registration form to include in the probeResult. The form will include
             // the basic information plus name and visibility of name and email.
@@ -159,6 +173,14 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
             /* ########   INICIO    ########## */
             if (oAuthEnabled) {
+                // Generate tokens
+                SecureRandom random = new SecureRandom();
+                oAuthTokenSecret = new byte[32];
+                oAuthToken = new byte[32];
+                random.nextBytes(oAuthToken);
+                random.nextBytes(oAuthTokenSecret);
+                oAuthTimestamp = new Timestamp(System.currentTimeMillis());
+
                 final FormField fieldOAuthVersion = registrationForm.addField();
                 fieldOAuthVersion.setVariable("oauth_version");
                 fieldOAuthVersion.setType(FormField.Type.hidden);
@@ -173,11 +195,13 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                 fieldOAuthToken.setVariable("oauth_token");
                 fieldOAuthToken.setType(FormField.Type.hidden);
                 fieldOAuthToken.setLabel("OAuth Token");
+                fieldOAuthToken.addValue(oAuthToken.toString());
                 fieldOAuthToken.setRequired(true);
 
                 final FormField fieldOAuthSecretToken = registrationForm.addField();
                 fieldOAuthSecretToken.setVariable("oauth_token_secret");
                 fieldOAuthSecretToken.setType(FormField.Type.hidden);
+                fieldOAuthSecretToken.addValue(oAuthTokenSecret.toString());
                 fieldOAuthSecretToken.setRequired(true);
 
                 final FormField fieldOAuthNonce = registrationForm.addField();
@@ -189,21 +213,18 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                 final FormField fieldOAuthTimestamp = registrationForm.addField();
                 fieldOAuthTimestamp.setVariable("oauth_timestamp");
                 fieldOAuthTimestamp.setType(FormField.Type.hidden);
-                fieldOAuthTimestamp.addValue("");
+                fieldOAuthTimestamp.addValue(oAuthTimestamp.toString());
                 fieldOAuthTimestamp.setRequired(true);
 
                 final FormField fieldOAuthConsumerKey = registrationForm.addField();
                 fieldOAuthConsumerKey.setVariable("oauth_consumer_key");
-                fieldOAuthConsumerKey.setType(FormField.Type.text_single);
+                fieldOAuthConsumerKey.setType(FormField.Type.hidden);
                 fieldOAuthConsumerKey.setLabel("Consumer Key");
-                fieldOAuthConsumerKey.addValue("");
                 fieldOAuthConsumerKey.setRequired(true);
 
                 final FormField fieldOAuthSignature = registrationForm.addField();
                 fieldOAuthSignature.setVariable("oauth_signature");
-                fieldOAuthSignature.setType(FormField.Type.text_private);
-                fieldOAuthSignature.setLabel("Signature Secret");
-                fieldOAuthSignature.addValue("");
+                fieldOAuthSignature.setType(FormField.Type.hidden);
                 fieldOAuthSignature.setRequired(true);
             }
             /* ########   FIN    ########## */
@@ -334,11 +355,18 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                     String password = null;
                     String email = null;
                     String name = null;
+                    String oauthVersion = null;
+                    String oauthSignatureMethod = null;
+                    String oauthToken = null;
+                    String oauthTokenSecret = null;
+                    String oauthNonce = null;
+                    String oauthTimestamp = null;
+                    String oauthConsumerKey = null;
+                    String oauthSignature = null;
+
                     User newUser;
                     DataForm registrationForm;
                     FormField field;
-                    String consumerKey;
-                    String signature;
 
                     Element formElement = iqElement.element("x");
                     // Check if a form was used to provide the registration info
@@ -368,15 +396,55 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                         }
                         // TODO: Pendiente
                         if (oAuthEnabled) {
+                            field = registrationForm.getField("oauth_version");
+                            if (field != null){
+                                values = field.getValues();
+                                oauthVersion = (!values.isEmpty() ? values.get(0) : " ");
+                            }
+                            field = registrationForm.getField("oauth_signature_method");
+                            if (field != null){
+                                values = field.getValues();
+                                oauthSignatureMethod = (!values.isEmpty() ? values.get(0) : " ");
+                            }
+                            field = registrationForm.getField("oauth_token");
+                            if (field != null){
+                                values = field.getValues();
+                                oauthToken = (!values.isEmpty() ? values.get(0) : " ");
+                            }
+                            field = registrationForm.getField("oauth_token_secret");
+                            if (field != null){
+                                values = field.getValues();
+                                oauthTokenSecret = (!values.isEmpty() ? values.get(0) : " ");
+                            }
+                            field = registrationForm.getField("oauth_nonce");
+                            if (field != null){
+                                values = field.getValues();
+                                oauthNonce = (!values.isEmpty() ? values.get(0) : " ");
+                            }
+                            field = registrationForm.getField("oauth_timestamp");
+                            if (field != null){
+                                values = field.getValues();
+                                oauthTimestamp = (!values.isEmpty() ? values.get(0) : " ");
+                            }
                             field = registrationForm.getField("oauth_consumer_key");
                             if (field != null){
                                 values = field.getValues();
-                                consumerKey = (!values.isEmpty() ? values.get(0) : " ");
+                                oauthConsumerKey = (!values.isEmpty() ? values.get(0) : " ");
                             }
                             field = registrationForm.getField("oauth_signature");
                             if (field != null){
                                 values = field.getValues();
-                                signature = (!values.isEmpty() ? values.get(0) : " ");
+                                oauthSignature = (!values.isEmpty() ? values.get(0) : " ");
+                            }
+
+                            //###################################################
+                            //################### TEST #########################
+                            if (isRegisterOAuthEnabled()){
+                                Log.error("\nContenido: " + oauthConsumerKey + "\n" +
+                                    "Length: "+ oauthConsumerKey.length());
+                                if (oauthConsumerKey == null || oauthConsumerKey.length() ==  0){
+                                    throw new UserNotFoundException();
+                                }
                             }
                         }
                     }
@@ -467,6 +535,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                             newUser = userManager.createUser(username, password, name, email);
                         }
                     }
+
+
                     // Set and save the extra user info (e.g. full name, etc.)
                     if (newUser != null && name != null && !name.equals(newUser.getName())) {
                         newUser.setName(name);
@@ -566,4 +636,6 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
     public Iterator<String> getFeatures() {
         return Collections.singleton("jabber:iq:register").iterator();
     }
+
+
 }
