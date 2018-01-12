@@ -61,7 +61,9 @@ Import-Package: io.hawt.git;resolution:=optional;version="[1.4,2)",io.ha
  nal,org.eclipse.jetty.plus.jaas.spi;resolution:=optional,org.ietf.jgss,
  org.osgi.framework;version="[1.6,2)",org.osgi.util.tracker;version="[1.
  4,2)",org.slf4j;resolution:=optional;version="[1.6,2)",org.w3c.dom,org.
- xml.sax,org.xml.sax.helpers
+ xml.sax,org.xml.sax.helpers,
+ org.apache.commons.codec,
+ org.apache.commons.codec
 Java-Vendor: Oracle Corporation
 Java-Version: 1.7.0_55
 Os-Arch: amd64
