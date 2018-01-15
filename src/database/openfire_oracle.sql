@@ -372,7 +372,7 @@ CREATE TABLE ofPubsubDefaultConf (
 
 CREATE TABLE ofOAuth (
     consumerKey         VARCHAR2(100)    NOT NULL,
-    signature           VARCHAR2(100)    NOT NULL,
+    consumerSecret           VARCHAR2(100)    NOT NULL,
     amountOfIdentities  INTEGER         NOT NULL,
     identitiesCreates   INTEGER         NULL,
     CONSTRAINT ofOAuth_pk PRIMARY KEY (consumerKey)

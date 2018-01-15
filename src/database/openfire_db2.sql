@@ -389,7 +389,7 @@ CREATE TABLE ofPubsubDefaultConf (
 
 CREATE TABLE ofOAuth (
     consumerKey         VARCHAR(100)    NOT NULL,
-    signature           VARCHAR(100)    NOT NULL,
+    consumerSecret      VARCHAR(100)    NOT NULL,
     amountOfIdentities  INTEGER         NOT NULL,
     identitiesCreates   INTEGER         NULL,
     CONSTRAINT ofOAuth_pk PRIMARY KEY (consumerKey)
@@ -406,6 +406,13 @@ INSERT INTO ofVersion (name, version) VALUES ('openfire', 26);
 -- Entry for admin user
 INSERT INTO ofUser (username, plainPassword, name, email, creationDate, modificationDate)
     VALUES ('admin', 'admin', 'Administrator', 'admin@example.com', '0', '0');
+
+-- DEBUG
+INSERT INTO ofOAuth (consumerKey, consumerSecret, amountOfIdentities, identitiesCreates) VALUES
+    ('ba34cc2f8ad9ef4b7406dfea55d5ae6864352ded9e580042cb96be19939a48f7',
+     '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',
+     '100',
+     '0');
 
 -- Entry for default conference service
 INSERT INTO ofMucService (serviceID, subdomain, isHidden) VALUES (1, 'conference', 0);
