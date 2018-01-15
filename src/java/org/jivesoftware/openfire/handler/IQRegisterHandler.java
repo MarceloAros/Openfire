@@ -95,13 +95,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
     private UserManager userManager;
     private RosterManager rosterManager;
 
-    private static String oAuthVersion;
-    private static String oAuthSignatureMethod;
-    private static String oAuthToken;
-    private static String oAuthTokenSecret;
-    private static String oAuthNonce;
-    private static String oAuthSignature;
-    private static Timestamp oAuthTimestamp;
+    String[] consumerData;
     private static String oAuthConsumerSecret;
     private static Map<String, String> mapOAuth = new HashMap<String, String>();
 
@@ -188,13 +182,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
             /* ########   INICIO    ########## */
             if (oAuthEnabled) {
-                // Generate tokens
-                SecureRandom random = new SecureRandom();
-                // Add entropy to the tokens
-                oAuthTokenSecret = StringUtils.hash(UUID.randomUUID().toString(), "SHA-256");
-                oAuthToken = StringUtils.hash(UUID.randomUUID().toString(), "SHA-256");
-                oAuthNonce = StringUtils.hash(UUID.randomUUID().toString(), "SHA-256");
-                oAuthTimestamp = new Timestamp(System.currentTimeMillis());
+                // Generate tokens with high entropy tokens
                 this.mapOAuth.put("oauth_version", "1.0");
                 this.mapOAuth.put("oauth_signature_method","HMAC-SHA256");
                 this.mapOAuth.put("oauth_token",StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
@@ -381,7 +369,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                     String email = null;
                     String name = null;
 
-                    User newUser;
+                    User newUser = null;
                     DataForm registrationForm;
                     FormField field;
 
@@ -469,6 +457,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                             }
 
                             if (isRegisterOAuthEnabled()){
+                                // Aseguramos que los valores que enviamos sean los mismos que llegan
+                                // y que los campos consumerKey y Signature contengan data
                                 if (this.mapOAuth.get("oauth_version").equals(valores.get("oauth_version"))  &&
                                     this.mapOAuth.get("oauth_signature_method").equals(valores.get("oauth_signature_method")) &&
                                     this.mapOAuth.get("oauth_token").equals(valores.get("oauth_token")) &&
@@ -479,17 +469,18 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                                     valores.get("oauth_signature").trim() != "")
                                 {
                                     Log.warn("%%%%%%%%%%%%%% ENTRÉ en el IF condición %%%%%%%%%%%");
-                                    String[] consumerData = checkOAuthConsumer(valores.get("oauth_consumer_key"));
-                                    if (consumerData == null){
+                                    this.consumerData = checkOAuthConsumer(valores.get("oauth_consumer_key"));
+                                    // Si el consumerKey proporcionado por el cliente no esta en nuestros registros
+                                    if (this.consumerData == null){
                                         Log.error("No se ha encontrado consumerKey");
                                         throw new UserNotFoundException();
                                     }
                                     else {
-                                        this.oAuthConsumerSecret = consumerData[1];
+                                        this.oAuthConsumerSecret = this.consumerData[1];
 
                                         if (!calculateSignature(new TreeMap<String, String>(mapOAuth), packet.getFrom().toString().trim()).equals(valores.get("oauth_signature").trim())
-                                            || Integer.parseInt(consumerData[1]) == Integer.parseInt(consumerData[2])){
-                                            Log.warn("\n\nError al registrar NUEVA cuenta:\n\tConsumer Secret: " + consumerData[0] + "\n\tamountOfIdentities: " + consumerData[1] + "\n\tidentitiesCreates: " + consumerData[3]);
+                                            || Integer.parseInt(this.consumerData[1]) == Integer.parseInt(this.consumerData[2])){
+                                            Log.warn("\n\nError al registrar NUEVA cuenta:\n\tConsumer Secret: " + this.consumerData[0] + "\n\tamountOfIdentities: " + this.consumerData[1] + "\n\tidentitiesCreates: " + this.consumerData[3]);
                                             throw new UserNotFoundException();
                                         }
                                     }
@@ -586,7 +577,16 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                         }
                         else {
                             // Create the new account
-                            newUser = userManager.createUser(username, password, name, email);
+
+                            if (oAuthEnabled){
+                                if (this.updateConsumerIdentities(1 + Integer.parseInt(this.consumerData[2]) + 1)){
+                                    newUser = userManager.createUser(username, password, name, email);
+                                }
+                            } else {
+                                newUser = userManager.createUser(username, password, name, email);
+                            }
+
+
                         }
                     }
 
@@ -756,6 +756,31 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             DbConnectionManager.closeConnection(rs, pstmt, con);
         }
         return result;
+    }
+
+    public boolean updateConsumerIdentities(int amountIdentiesCreated) {
+        String result = null;
+        String JDBC_UPDATE = "UPDATE Customers SET amountOfIdentities = ? WHERE CustomerID = ?";
+
+        Connection con = null;
+        PreparedStatement pstmt = null;
+
+        try {
+            con = DbConnectionManager.getConnection();
+            pstmt = con.prepareStatement(JDBC_UPDATE);
+            pstmt.setInt(1, amountIdentiesCreated);
+            pstmt.setString(2,this.mapOAuth.get("oauth_consumer_key"));
+
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            Log.error(e.getMessage(), e);
+        }
+        catch (NumberFormatException e) {
+            Log.error(e.getMessage(), e);
+        } finally {
+            DbConnectionManager.closeConnection(pstmt, con);
+        }
+        return true;
     }
 
     @Override
