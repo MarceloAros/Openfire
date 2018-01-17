@@ -579,7 +579,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                             // Create the new account
 
                             if (oAuthEnabled){
-                                if (this.updateConsumerIdentities(1 + Integer.parseInt(this.consumerData[2]) + 1)){
+                                if (this.updateConsumerIdentities(1 + Integer.parseInt(this.consumerData[2]))){
                                     newUser = userManager.createUser(username, password, name, email);
                                 }
                             } else {
@@ -589,8 +589,6 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
                         }
                     }
-
-
                     // Set and save the extra user info (e.g. full name, etc.)
                     if (newUser != null && name != null && !name.equals(newUser.getName())) {
                         newUser.setName(name);
@@ -722,6 +720,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         return hash.toString();
     }
 
+    // Comprueba si el 'secret' del consumer corresponde al ingresado
     public String[] checkOAuthConsumer(String oAuthConsumerSecret) {
         String[] result = null;
         String JDBC_SELECT = "SELECT consumerSecret, amountOfIdentities, identitiesCreates  from ofOAuth where consumerKey = ?";
@@ -759,9 +758,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
     }
 
     public boolean updateConsumerIdentities(int amountIdentiesCreated) {
-        String result = null;
+        boolean exito = false;
         String JDBC_UPDATE = "UPDATE Customers SET amountOfIdentities = ? WHERE CustomerID = ?";
-
         Connection con = null;
         PreparedStatement pstmt = null;
 
@@ -772,6 +770,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             pstmt.setString(2,this.mapOAuth.get("oauth_consumer_key"));
 
             pstmt.executeUpdate();
+            exito = true;
         } catch (SQLException e) {
             Log.error(e.getMessage(), e);
         }
@@ -780,8 +779,83 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         } finally {
             DbConnectionManager.closeConnection(pstmt, con);
         }
-        return true;
+        return exito;
     }
+
+    public boolean insertConsumer(String newConsumeKey, String newConsumerSecret, int autorizedCreations) {
+        boolean exito = false;
+        String JDBC_UPDATE = "INSERT INTO ofOAuth (consumerKey, consumerSecret, amountOfIdentities, identitiesCreates) " +
+            "values (?, ?, ?, ?)";
+
+        String hashConsumerSecret = StringUtils.hash(newConsumerSecret, "SHA-256");
+        Log.error("\nConsumerSecret hasheado es: " + hashConsumerSecret);
+
+        Connection con = null;
+        PreparedStatement pstmt = null;
+
+        try {
+            con = DbConnectionManager.getConnection();
+            pstmt = con.prepareStatement(JDBC_UPDATE);
+            pstmt.setString(1, newConsumeKey);
+            pstmt.setString(2,hashConsumerSecret);
+            pstmt.setInt(3, autorizedCreations);
+            pstmt.setInt(4,0);
+            Log.error("preparedStament es: \n" + pstmt.toString());
+            pstmt.execute();
+            exito = true;
+        } catch (SQLException e) {
+            Log.error(e.getMessage(), e);
+        }
+        catch (NumberFormatException e) {
+            Log.error(e.getMessage(), e);
+        } finally {
+            DbConnectionManager.closeConnection(pstmt, con);
+        }
+        return exito;
+    }
+
+    public ArrayList<ArrayList <String>> getConsumers() {
+        ArrayList<ArrayList <String>> table = new ArrayList<ArrayList<String>>();
+        ArrayList<String> row = new ArrayList<String>();
+        String JDBC_SELECT = "SELECT * FROM ofOAuth";
+        Connection con = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        List<String[]> consumerList = new ArrayList<String[]>();
+        try {
+            con = DbConnectionManager.getConnection();
+            pstmt = con.prepareStatement(JDBC_SELECT);
+            rs = pstmt.executeQuery();
+
+            if (rs.next()){
+                rs.beforeFirst();
+                while (rs.next()){
+                    row.add(rs.getString("consumerKey"));Log.error("row.add: " + row.get(0));
+                    row.add(rs.getString("consumerSecret"));Log.error("row.add: " + row.get(1));
+                    row.add(rs.getString("amountOfIdentities"));Log.error("row.add: " + row.get(2));
+                    row.add(rs.getString("identitiesCreates"));Log.error("row.add: " + row.get(3));
+                    table.add(row);
+                    row.clear();
+                }
+                Log.error("DENTRO de la lectura");
+            }
+            else {
+                table = null;
+            }
+        } catch (SQLException e) {
+            table = null;
+            Log.error(e.getMessage(), e);
+        }
+        catch (NumberFormatException e) {
+            table = null;
+            Log.error(e.getMessage(), e);
+        } finally {
+            DbConnectionManager.closeConnection(rs, pstmt, con);
+        }
+        return table;
+    }
+
+
 
     @Override
     public IQHandlerInfo getInfo() {
@@ -792,6 +866,5 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
     public Iterator<String> getFeatures() {
         return Collections.singleton("jabber:iq:register").iterator();
     }
-
 
 }
