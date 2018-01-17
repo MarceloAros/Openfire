@@ -165,21 +165,10 @@
     }
     blockedIPs = buf2.toString();
 
+    // Fill arraylist with data form consumers
     ArrayList<ArrayList<String>> consumers = regHandler.getConsumers();
-    String debugString = "";
-    if (consumers != null){
-        for (ArrayList<String> fila: consumers){
-            debugString+="\n\t" +  fila.get(0) +
-                "\n\t" + fila.get(1) +
-                "\n\t" + fila.get(2) +
-                "\n\t" + fila.get(3) + "\n";
-        }
-        Log.error("Impresion de Array" + debugString);
-    } else {
-        Log.error("consumers esta vacio");
-    }
 
-
+    pageContext.setAttribute( "consumers",          consumers);
     pageContext.setAttribute( "readOnly",           UserManager.getUserProvider().isReadOnly() );
     pageContext.setAttribute( "inbandEnabled",      inbandEnabled );
     pageContext.setAttribute( "canChangePassword",  canChangePassword );
@@ -283,18 +272,14 @@
                     <th nowrap>Used creations</th>
                     <th nowrap>Delete?</th>
                 </tr>
-                <tr>
-                    <td>iu3298msasdr34s</td>
-                    <td>*****************************</td>
-                    <td>100</td>
-                    <td>3</td>
-                    <td><img src="images/delete-16x16.gif" width="16" height="16" alt="<fmt:message key="" />" border="0"></td>
-                </tr>
-
-
-
-
-
+                <c:forEach items="${consumers}" var="row">
+                    <tr>
+                    <c:forEach items="${row}" var="cell">
+                        <td>${cell}</td>
+                    </c:forEach>
+                        <td><img src="images/delete-16x16.gif" width="16" height="16" alt="<fmt:message key="" />" border="0"></td>
+                    </tr>
+                </c:forEach>
             </table>
         </div>
         <script>
