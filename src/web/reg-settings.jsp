@@ -254,12 +254,12 @@
             <tr>
                 <td>
                     <b>Authorized creations</b><br>
-                    <input type="number" size="7" maxlength="7" name="newConsumerAuthorizedCreations">
+                    <input type="text" size="7" maxlength="7" name="newConsumerAuthorizedCreations" onkeypress='validate(event)' >
                 </td>
             </tr>
         </table>
 
-        <input type="submit" name="save" value="Guardar Valores">
+        <input id="submitConsumerCredentials" type="submit" name="save" value="Guardar credencial" disabled>
 
         <br><br>
 
@@ -270,18 +270,17 @@
                     <th nowrap>Consumer Secret</th>
                     <th nowrap>Authorized creations</th>
                     <th nowrap>Used creations</th>
-                    <th nowrap>Delete?</th>
                 </tr>
                 <c:forEach items="${consumers}" var="row">
                     <tr>
                     <c:forEach items="${row}" var="cell">
                         <td>${cell}</td>
                     </c:forEach>
-                        <td><img src="images/delete-16x16.gif" width="16" height="16" alt="<fmt:message key="" />" border="0"></td>
                     </tr>
                 </c:forEach>
             </table>
         </div>
+
         <script>
             function uuidv4() {
                 return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -395,6 +394,25 @@
             function generateCredentials(){
                 document.getElementById('consumerKey').value = SHA256(uuidv4());
                 document.getElementById('consumerSecret').value = SHA256(uuidv4());
+                document.getElementById('submitConsumerCredentials').disabled = false;
+            }
+
+            function validate(evt) {
+                var theEvent = evt || window.event;
+
+                // Handle paste
+                if (theEvent.type === 'paste') {
+                    key = event.clipboardData.getData('text/plain');
+                } else {
+                    // Handle key press
+                    var key = theEvent.keyCode || theEvent.which;
+                    key = String.fromCharCode(key);
+                }
+                var regex = /[0-9]|\./;
+                if( !regex.test(key) ) {
+                    theEvent.returnValue = false;
+                    if(theEvent.preventDefault) theEvent.preventDefault();
+                }
             }
         </script>
 
