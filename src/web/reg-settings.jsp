@@ -46,6 +46,7 @@
 <% // Get parameters
     boolean save = request.getParameter("save") != null;
     boolean inbandEnabled = ParamUtils.getBooleanParameter(request, "inbandEnabled");
+    boolean xep0348Enabled = ParamUtils.getBooleanParameter(request, "xep0348Enabled");
     boolean canChangePassword = ParamUtils.getBooleanParameter(request, "canChangePassword");
     boolean anonLogin = ParamUtils.getBooleanParameter(request, "anonLogin");
     String allowedIPs = request.getParameter("allowedIPs");
@@ -82,6 +83,7 @@
 
     if (save) {
         regHandler.setInbandRegEnabled(inbandEnabled);
+        regHandler.setRegisterOAuthEnabled(xep0348Enabled);
 
         if (newConsumerKey != null && newConsumerSecret != null && newConsumerAuthorizedCreations != 0){
             regHandler.insertConsumer(newConsumerKey, newConsumerSecret, newConsumerAuthorizedCreations);
@@ -132,6 +134,7 @@
 
     // Reset the value of page vars:
     inbandEnabled = regHandler.isInbandRegEnabled();
+    xep0348Enabled = regHandler.isRegisterOAuthEnabled();
     canChangePassword = regHandler.canChangePassword();
     anonLogin = JiveGlobals.getBooleanProperty( "xmpp.auth.anonymous" );
     // Encode the allowed IP addresses
@@ -171,6 +174,7 @@
     pageContext.setAttribute( "consumers",          consumers);
     pageContext.setAttribute( "readOnly",           UserManager.getUserProvider().isReadOnly() );
     pageContext.setAttribute( "inbandEnabled",      inbandEnabled );
+    pageContext.setAttribute( "xep0348Enabled",      xep0348Enabled );
     pageContext.setAttribute( "canChangePassword",  canChangePassword );
     pageContext.setAttribute( "anonLogin",          anonLogin );
     pageContext.setAttribute( "blockedIPs",         blockedIPs);
@@ -226,11 +230,11 @@
         <br>
         <table cellpadding="3" cellspacing="0" border="0">
             <tr>
-                <td width="1%"><input type="radio" name="oAuthEnabled" value="true" id="rb11" ${inbandEnabled ? 'checked' : ''} ${readOnly ? 'disabled' : ''}></td>
+                <td width="1%"><input type="radio" name="xep0348Enabled" value="true" id="rb11" ${xep0348Enabled ? 'checked' : ''} ${readOnly ? 'disabled' : ''}></td>
                 <td width="99%"><label for="rb11"><b><fmt:message key="reg.settings.enable" /></b> -<fmt:message key="reg.settings.auto_create_user.oauth" /></label></td>
             </tr>
             <tr>
-                <td width="1%"><input type="radio" name="oAuthEnabled" value="false" id="rb12" ${inbandEnabled ?  '' : 'checked'} ${readOnly ? 'disabled' : ''}></td>
+                <td width="1%"><input type="radio" name="xep0348Enabled" value="false" id="rb12" ${xep0348Enabled ?  '' : 'checked'} ${readOnly ? 'disabled' : ''}></td>
                 <td width="99%"><label for="rb12"><b><fmt:message key="reg.settings.disable" /></b> - <fmt:message key="reg.settings.not_auto_create_user.oauth" /></label></td>
             </tr>
         </table>

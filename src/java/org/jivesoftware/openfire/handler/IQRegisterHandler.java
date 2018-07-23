@@ -114,7 +114,6 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         super.initialize(server);
         userManager = server.getUserManager();
         rosterManager = server.getRosterManager();
-        oAuthEnabled = true;
 
         if (probeResult == null) {
             // Create the basic element of the probeResult which contains the basic registration
@@ -181,7 +180,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             fieldPwd.setRequired(true);
 
             /* ########   INICIO    ########## */
-            if (oAuthEnabled) {
+            if (isRegisterOAuthEnabled()) {
                 // Generate tokens with high entropy tokens
                 this.mapOAuth.put("oauth_version", "1.0");
                 this.mapOAuth.put("oauth_signature_method","HMAC-SHA256");
@@ -245,10 +244,13 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         }
 
         JiveGlobals.migrateProperty("register.inband");
+        JiveGlobals.migrateProperty("register.inband.oauth1");
         JiveGlobals.migrateProperty("register.password");
 
         // See if in-band registration should be enabled (default is true).
         registrationEnabled = JiveGlobals.getBooleanProperty("register.inband", true);
+        // registratión using oauth1 as explain xep-0348 be enabled (default is true)
+        oAuthEnabled = JiveGlobals.getBooleanProperty("register.inband.oauth1", true);
         // See if users can change their passwords (default is true).
         canChangePassword = JiveGlobals.getBooleanProperty("register.password", true);
     }
@@ -271,6 +273,14 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         }
         Log.error("######################################################################################");
         if (IQ.Type.get.equals(packet.getType())) {
+            this.mapOAuth.put("oauth_version", "1.0");
+            this.mapOAuth.put("oauth_signature_method","HMAC-SHA256");
+            this.mapOAuth.put("oauth_token",StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
+            this.mapOAuth.put("oauth_token_secret", StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
+            this.mapOAuth.put("oauth_nonce", StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
+            this.mapOAuth.put("oauth_timestamp", "" + (new Timestamp(System.currentTimeMillis())).getTime());
+            this.mapOAuth.put("oauth_consumer_key", "");
+            this.mapOAuth.put("oauth_signature", "");
             // If inband registration is not allowed, return an error.
             if (!registrationEnabled) {
                 reply = IQ.createResultIQ(packet);
@@ -411,7 +421,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                             valores.put("name", name);
                             this.mapOAuth.put("name", name);
                         }
-                        if (oAuthEnabled) {
+                        if (isRegisterOAuthEnabled()) {
                             field = registrationForm.getField("oauth_version");
                             if (field != null){
                                 values = field.getValues();
@@ -456,41 +466,53 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                                 this.mapOAuth.put("oauth_signature", (!values.isEmpty() ? values.get(0) : ""));
                             }
 
-                            if (isRegisterOAuthEnabled()){
-                                // Aseguramos que los valores que enviamos sean los mismos que llegan
-                                // y que los campos consumerKey y Signature contengan data
-                                if (this.mapOAuth.get("oauth_version").equals(valores.get("oauth_version"))  &&
-                                    this.mapOAuth.get("oauth_signature_method").equals(valores.get("oauth_signature_method")) &&
-                                    this.mapOAuth.get("oauth_token").equals(valores.get("oauth_token")) &&
-                                    this.mapOAuth.get("oauth_token_secret").equals(valores.get("oauth_token_secret")) &&
-                                    this.mapOAuth.get("oauth_nonce").equals(valores.get("oauth_nonce")) &&
-                                    this.mapOAuth.get("oauth_timestamp").equals(valores.get("oauth_timestamp")) &&
-                                    valores.get("oauth_consumer_key").trim() != "" &&
-                                    valores.get("oauth_signature").trim() != "")
-                                {
-                                    Log.warn("%%%%%%%%%%%%%% ENTRÉ en el IF condición %%%%%%%%%%%");
-                                    this.consumerData = checkOAuthConsumer(valores.get("oauth_consumer_key"));
-                                    // Si el consumerKey proporcionado por el cliente no esta en nuestros registros
-                                    if (this.consumerData == null){
-                                        Log.error("No se ha encontrado consumerKey");
-                                        throw new UserNotFoundException();
-                                    }
-                                    else {
-                                        this.oAuthConsumerSecret = this.consumerData[1];
 
-                                        if (!calculateSignature(new TreeMap<String, String>(mapOAuth), packet.getFrom().toString().trim()).equals(valores.get("oauth_signature").trim())
-                                            || Integer.parseInt(this.consumerData[1]) == Integer.parseInt(this.consumerData[2])){
-                                            Log.warn("\n\nError al registrar NUEVA cuenta:\n\tConsumer Secret: " + this.consumerData[0] + "\n\tamountOfIdentities: " + this.consumerData[1] + "\n\tidentitiesCreates: " + this.consumerData[3]);
-                                            throw new UserNotFoundException();
-                                        }
-                                    }
-                                }
-                                else{
-                                    Log.warn("%%%%%%%%%%%%%% ENTRÉ en en ELSE condición %%%%%%%%%%%");
-                                    Log.warn("Value empty(ies) or null(s)\n\n" + packet.toString());
+                            Log.warn("### IMPRESION DE mapOAuth ###");
+                            for (Map.Entry entry : mapOAuth.entrySet()){
+                                Log.warn("\t" + entry.getKey() + ": " +  entry.getValue());
+                            }
+
+                            Log.warn("### IMPRESION DE map Valores ###");
+                            for (Map.Entry entry : valores.entrySet()){
+                                Log.warn("\t" + entry.getKey() + ": " +  entry.getValue());
+                            }
+
+
+
+                            // Aseguramos que los valores que enviamos sean los mismos que llegan
+                            // y que los campos consumerKey y Signature contengan data
+                            if (this.mapOAuth.get("oauth_version").equals(valores.get("oauth_version"))  &&
+                                this.mapOAuth.get("oauth_signature_method").equals(valores.get("oauth_signature_method")) &&
+                                this.mapOAuth.get("oauth_token").equals(valores.get("oauth_token")) &&
+                                this.mapOAuth.get("oauth_token_secret").equals(valores.get("oauth_token_secret")) &&
+                                this.mapOAuth.get("oauth_nonce").equals(valores.get("oauth_nonce")) &&
+                                this.mapOAuth.get("oauth_timestamp").equals(valores.get("oauth_timestamp")) &&
+                                valores.get("oauth_consumer_key").trim() != "" &&
+                                valores.get("oauth_signature").trim() != "")
+                            {
+                                Log.warn("%%%%%%%%%%%%%% ENTRÉ en el IF condición %%%%%%%%%%%");
+                                this.consumerData = checkOAuthConsumer(valores.get("oauth_consumer_key"));
+                                // Si el consumerKey proporcionado por el cliente no esta en nuestros registros
+                                if (this.consumerData == null){
+                                    Log.error("No se ha encontrado consumerKey");
                                     throw new UserNotFoundException();
                                 }
+                                else {
+                                    this.oAuthConsumerSecret = this.consumerData[1];
+
+                                    if (!calculateSignature(new TreeMap<String, String>(mapOAuth), packet.getFrom().toString().trim()).equals(valores.get("oauth_signature").trim())
+                                        || Integer.parseInt(this.consumerData[1]) == Integer.parseInt(this.consumerData[2])){
+                                        Log.warn("\n\nError al registrar NUEVA cuenta:\n\tConsumer Secret: " + this.consumerData[0] + "\n\tamountOfIdentities: " + this.consumerData[1] + "\n\tidentitiesCreates: " + this.consumerData[3]);
+                                        throw new UserNotFoundException();
+                                    }
+                                }
                             }
+                            else{
+                                Log.warn("%%%%%%%%%%%%%% ENTRÉ en en ELSE condición %%%%%%%%%%%");
+                                Log.warn("Value empty(ies) or null(s)\n\n" + packet.toString());
+                                throw new UserNotFoundException();
+                            }
+
                         }
                     }
                     else {
@@ -647,6 +669,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
     public void setRegisterOAuthEnabled(boolean allowed){
         oAuthEnabled = allowed;
+        JiveGlobals.setProperty("rregister.inband.oauth1", oAuthEnabled ? "true" : "false");
+        Log.warn("Se ha modificado oAuthEnabled a: " + oAuthEnabled);
     }
 
     public boolean isInbandRegEnabled()
@@ -857,7 +881,15 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
     @Override
     public Iterator<String> getFeatures() {
-        return Collections.singleton("jabber:iq:register").iterator();
+        int i = 0;
+        List<String> iQRegfeatureList = new ArrayList<String>();
+        iQRegfeatureList.add("jabber:iq:register");
+        iQRegfeatureList.add("urn:xmpp:xdata:signature:oauth1");
+
+        return iQRegfeatureList.iterator();
+        //return Collections.singleton("jabber:iq:register").iterator();
     }
+
+
 
 }
