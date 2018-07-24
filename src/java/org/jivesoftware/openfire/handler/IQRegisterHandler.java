@@ -124,6 +124,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             probeResult.addElement("email");
             probeResult.addElement("name");
             //
+            /*
             probeResult.addElement("oauth_version");
             probeResult.addElement("oauth_signature_method");
             probeResult.addElement("oauth_token");
@@ -132,6 +133,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             probeResult.addElement("oauth_timestamp");
             probeResult.addElement("oauth_consumer_key");
             probeResult.addElement("oauth_signature");
+            */
 
             // Create the registration form to include in the probeResult. The form will include
             // the basic information plus name and visibility of name and email.
@@ -143,11 +145,9 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             final FormField fieldForm = registrationForm.addField();
             fieldForm.setVariable("FORM_TYPE");
             fieldForm.setType(FormField.Type.hidden);
+            fieldForm.addValue("jabber:iq:register");
             if (oAuthEnabled){
                 fieldForm.addValue("urn:xmpp:xdata:signature:oauth1");
-            }
-            else {
-                fieldForm.addValue("jabber:iq:register");
             }
 
 
@@ -300,6 +300,10 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                             .setText(user.getEmail() == null ? "" : user.getEmail());
                         currentRegistration.element("name").setText(user.getName());
 
+                        Log.warn("????  Usuario  ????\n\t" + user.toString() + "" +
+                            "\n\n #### ProbeResult #### \n" + probeResult.toString() + "" +
+                            "\n\n #### CurrentRegistration 1 #### \n" + currentRegistration.getText());
+
                         Element form = currentRegistration.element(QName.get("x", "jabber:x:data"));
                         Iterator fields = form.elementIterator("field");
                         Element field;
@@ -329,15 +333,20 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                     // value we need to clean up the TO attribute. The TO attribute will contain an
                     // incorrect value since we are setting a fake JID until the user actually
                     // authenticates with the server.
+
                     reply.setTo((JID) null);
-                    reply.setChildElement(probeResult.createCopy());
+                    //reply.setChildElement(probeResult.createCopy());
+                    reply.setChildElement(tanteo().createCopy());
+
                 }
             }
         }
         else if (IQ.Type.set.equals(packet.getType())) {
             try {
                 Element iqElement = packet.getChildElement();
+                Log.warn("Impresion linea " + Thread.currentThread().getStackTrace()[2].getLineNumber() + ".  Dentro del SET Abajo del primer try.");
                 if (iqElement.element("remove") != null) {
+                    Log.warn("Impresion linea " + Thread.currentThread().getStackTrace()[2].getLineNumber() + ".  Entre al irf(iqElement.element(\"remove\") != null) ");
                     // If inband registration is not allowed, return an error.
                     if (!registrationEnabled) {
                         reply = IQ.createResultIQ(packet);
@@ -345,6 +354,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                         reply.setError(PacketError.Condition.forbidden);
                     }
                     else {
+                        Log.warn("Impresion linea " + Thread.currentThread().getStackTrace()[2].getLineNumber() + ".  Entre al else del if(!registrationEnabled) ) ");
                         if (session.getStatus() == Session.STATUS_AUTHENTICATED) {
                             User user = userManager.getUser(session.getUsername());
                             // Delete the user
@@ -374,6 +384,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                     }
                 }
                 else {
+                    Log.warn("Impresion linea 1");
+
                     String username;
                     String password = null;
                     String email = null;
@@ -386,17 +398,22 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                     Element formElement = iqElement.element("x");
                     // Check if a form was used to provide the registration info
                     if (formElement != null) {
+                        Log.warn("Impresion linea 2");
                         // Get the sent form
                         registrationForm = new DataForm(formElement);
                         // Get the username sent in the form
                         List<String> values = registrationForm.getField("username").getValues();
                         Map<String, String> valores = new HashMap<String, String>();
 
+
+                        Log.warn("Impresion linea 3");
                         // Get the username sent in the forms
                         username = (!values.isEmpty() ? values.get(0) : " ");
+                        Log.warn("El usuario que llego es: \"" + username +"\"");
                         this.mapOAuth.put("username", username);
                         valores.put("username", username);
 
+                        Log.warn("Impresion linea 4");
                         // Get the password sent in the forms
                         field = registrationForm.getField("password");
                         if (field != null) {
@@ -405,6 +422,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                             valores.put("password", password);
                             this.mapOAuth.put("password", password);
                         }
+
+                        Log.warn("Impresion linea 5");
                         // Get the email sent in the form
                         field = registrationForm.getField("email");
                         if (field != null) {
@@ -413,6 +432,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                             valores.put("email", email);
                             this.mapOAuth.put("email", email);
                         }
+
+                        Log.warn("Impresion linea 6");
                         // Get the name sent in the form
                         field = registrationForm.getField("name");
                         if (field != null) {
@@ -421,6 +442,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                             valores.put("name", name);
                             this.mapOAuth.put("name", name);
                         }
+                        Log.warn("Impresion linea 7" + Thread.currentThread().getStackTrace()[2].getLineNumber() + ". El valor de isRegisterOAuthEnabled() es \": " + isRegisterOAuthEnabled() + "\"");
                         if (isRegisterOAuthEnabled()) {
                             field = registrationForm.getField("oauth_version");
                             if (field != null){
@@ -495,7 +517,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                                 // Si el consumerKey proporcionado por el cliente no esta en nuestros registros
                                 if (this.consumerData == null){
                                     Log.error("No se ha encontrado consumerKey");
-                                    throw new UserNotFoundException();
+                                    throw new UnauthorizedException();
                                 }
                                 else {
                                     this.oAuthConsumerSecret = this.consumerData[1];
@@ -503,19 +525,21 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                                     if (!calculateSignature(new TreeMap<String, String>(mapOAuth), packet.getFrom().toString().trim()).equals(valores.get("oauth_signature").trim())
                                         || Integer.parseInt(this.consumerData[1]) == Integer.parseInt(this.consumerData[2])){
                                         Log.warn("\n\nError al registrar NUEVA cuenta:\n\tConsumer Secret: " + this.consumerData[0] + "\n\tamountOfIdentities: " + this.consumerData[1] + "\n\tidentitiesCreates: " + this.consumerData[3]);
-                                        throw new UserNotFoundException();
+                                        throw new UnauthorizedException();
                                     }
                                 }
                             }
                             else{
                                 Log.warn("%%%%%%%%%%%%%% ENTRÉ en en ELSE condición %%%%%%%%%%%");
                                 Log.warn("Value empty(ies) or null(s)\n\n" + packet.toString());
-                                throw new UserNotFoundException();
+                                throw new UnauthorizedException();
                             }
 
                         }
+                        Log.warn("Impresion linea 8");
                     }
                     else {
+                        Log.warn("Impresion linea 9");
                         // Get the registration info from the query elements
                         username = iqElement.elementText("username");
                         password = iqElement.elementText("password");
@@ -602,6 +626,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
                             if (oAuthEnabled){
                                 if (this.updateConsumerIdentities(1 + Integer.parseInt(this.consumerData[2]))){
+                                    // TODO: ESTA PASANDO HASTA AQUI, CUANDO NO DEBIESE LLEGAR PORQUE NO LE ENTREGO KEY NI FIRMAial
                                     newUser = userManager.createUser(username, password, name, email);
                                 }
                             } else {
@@ -618,6 +643,11 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
                     reply = IQ.createResultIQ(packet);
                 }
+            }
+            catch (UnauthorizedException e){
+                reply = IQ.createResultIQ(packet);
+                reply.setChildElement(packet.getChildElement().createCopy());
+                reply.setError(PacketError.Condition.not_authorized);
             }
             catch (UserAlreadyExistsException e) {
                 reply = IQ.createResultIQ(packet);
@@ -870,6 +900,116 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             DbConnectionManager.closeConnection(rs, pstmt, con);
         }
         return table;
+    }
+
+
+    public Element tanteo(){
+        //Elemento principal
+        Element RegistryStanza = DocumentHelper.createElement(QName.get("query", "jabber:iq:register"));
+
+        // Se crea el nodo <x xmlns='jabber:x:data' type='form'>
+        DataForm registrationForm = new DataForm(DataForm.Type.form);
+        registrationForm.setTitle("XMPP Client Registration");
+        registrationForm.addInstruction("Please provide the following information");
+
+        FormField fieldForm = registrationForm.addField();
+        fieldForm.setVariable("FORM_TYPE");
+        fieldForm.setType(FormField.Type.hidden);
+        fieldForm.addValue("jabber:iq:register");
+        if (isRegisterOAuthEnabled()){
+            fieldForm.addValue("urn:xmpp:xdata:signature:oauth1");
+        }
+
+
+        FormField fieldUser = registrationForm.addField();
+        fieldUser.setVariable("username");
+        fieldUser.setType(FormField.Type.text_single);
+        fieldUser.setLabel("Username");
+        fieldUser.setRequired(true);
+
+        FormField fieldName = registrationForm.addField();
+        fieldName.setVariable("name");
+        fieldName.setType(FormField.Type.text_single);
+        fieldName.setLabel("Full name");
+        if (UserManager.getUserProvider().isNameRequired()) {
+            fieldName.setRequired(true);
+        }
+
+        FormField fieldMail = registrationForm.addField();
+        fieldMail.setVariable("email");
+        fieldMail.setType(FormField.Type.text_single);
+        fieldMail.setLabel("Email");
+        if (UserManager.getUserProvider().isEmailRequired()) {
+            fieldMail.setRequired(true);
+        }
+
+        FormField fieldPwd = registrationForm.addField();
+        fieldPwd.setVariable("password");
+        fieldPwd.setType(FormField.Type.text_private);
+        fieldPwd.setLabel("Password");
+        fieldPwd.setRequired(true);
+
+        if (isRegisterOAuthEnabled()){
+            // Generate tokens with high entropy tokens
+            this.mapOAuth.put("oauth_version", "1.0");
+            this.mapOAuth.put("oauth_signature_method","HMAC-SHA256");
+            this.mapOAuth.put("oauth_token",StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
+            this.mapOAuth.put("oauth_token_secret", StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
+            this.mapOAuth.put("oauth_nonce", StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
+            this.mapOAuth.put("oauth_timestamp", "" + (new Timestamp(System.currentTimeMillis())).getTime());
+            this.mapOAuth.put("oauth_consumer_key", "");
+            this.mapOAuth.put("oauth_signature", "");
+
+
+            final FormField fieldOAuthVersion = registrationForm.addField();
+            fieldOAuthVersion.setVariable("oauth_version");
+            fieldOAuthVersion.setType(FormField.Type.hidden);
+            fieldOAuthVersion.addValue(this.mapOAuth.get("oauth_version"));
+
+            final FormField fieldOAuthSignatureMethod = registrationForm.addField();
+            fieldOAuthSignatureMethod.setVariable("oauth_signature_method");
+            fieldOAuthSignatureMethod.setType(FormField.Type.hidden);
+            fieldOAuthSignatureMethod.addValue(this.mapOAuth.get("oauth_signature_method"));
+
+            final FormField fieldOAuthToken = registrationForm.addField();
+            fieldOAuthToken.setVariable("oauth_token");
+            fieldOAuthToken.setType(FormField.Type.hidden);
+            fieldOAuthToken.setLabel("OAuth Token");
+            fieldOAuthToken.addValue(this.mapOAuth.get("oauth_token"));
+            fieldOAuthToken.setRequired(true);
+
+            final FormField fieldOAuthSecretToken = registrationForm.addField();
+            fieldOAuthSecretToken.setVariable("oauth_token_secret");
+            fieldOAuthSecretToken.setType(FormField.Type.hidden);
+            fieldOAuthSecretToken.addValue(this.mapOAuth.get("oauth_token_secret"));
+            fieldOAuthSecretToken.setRequired(true);
+
+            final FormField fieldOAuthNonce = registrationForm.addField();
+            fieldOAuthNonce.setVariable("oauth_nonce");
+            fieldOAuthNonce.setType(FormField.Type.hidden);
+            fieldOAuthNonce.addValue(this.mapOAuth.get("oauth_nonce"));
+            fieldOAuthNonce.setRequired(true);
+
+            final FormField fieldOAuthTimestamp = registrationForm.addField();
+            fieldOAuthTimestamp.setVariable("oauth_timestamp");
+            fieldOAuthTimestamp.setType(FormField.Type.hidden);
+            fieldOAuthTimestamp.addValue(this.mapOAuth.get("oauth_timestamp"));
+            fieldOAuthTimestamp.setRequired(true);
+
+            final FormField fieldOAuthConsumerKey = registrationForm.addField();
+            fieldOAuthConsumerKey.setVariable("oauth_consumer_key");
+            fieldOAuthConsumerKey.setType(FormField.Type.hidden);
+            fieldOAuthConsumerKey.setLabel("Consumer Key");
+            fieldOAuthConsumerKey.setRequired(true);
+
+            final FormField fieldOAuthSignature = registrationForm.addField();
+            fieldOAuthSignature.setVariable("oauth_signature");
+            fieldOAuthSignature.setType(FormField.Type.hidden);
+            fieldOAuthSignature.setRequired(true);
+        }
+
+        RegistryStanza.add(registrationForm.getElement());
+        return RegistryStanza;
     }
 
 
