@@ -273,7 +273,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         }
         Log.error("######################################################################################");
         if (IQ.Type.get.equals(packet.getType())) {
-            this.mapOAuth.put("oauth_version", "1.0");
+            mapOAuth.put("oauth_version", "1.0");
             this.mapOAuth.put("oauth_signature_method","HMAC-SHA256");
             this.mapOAuth.put("oauth_token",StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
             this.mapOAuth.put("oauth_token_secret", StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
@@ -540,6 +540,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                     }
                     else {
                         Log.warn("Impresion linea 9");
+                        if (isRegisterOAuthEnabled())
+                            throw new IllegalArgumentException();
                         // Get the registration info from the query elements
                         username = iqElement.elementText("username");
                         password = iqElement.elementText("password");
@@ -645,9 +647,17 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                 }
             }
             catch (UnauthorizedException e){
-                reply = IQ.createResultIQ(packet);
-                reply.setChildElement(packet.getChildElement().createCopy());
-                reply.setError(PacketError.Condition.not_authorized);
+                if (isRegisterOAuthEnabled()){
+                    reply = IQ.createResultIQ(packet);
+                    reply.setChildElement(packet.getChildElement().createCopy());
+                    PacketError pe = new PacketError(PacketError.Condition.bad_request, PacketError.Type.modify, "You have not provided consumer credentials, or these are not valid");
+                    reply.setError(pe);
+                }
+                else {
+                    reply = IQ.createResultIQ(packet);
+                    reply.setChildElement(packet.getChildElement().createCopy());
+                    reply.setError(PacketError.Condition.not_authorized);
+                }
             }
             catch (UserAlreadyExistsException e) {
                 reply = IQ.createResultIQ(packet);
@@ -821,7 +831,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             con = DbConnectionManager.getConnection();
             pstmt = con.prepareStatement(JDBC_UPDATE);
             pstmt.setInt(1, amountIdentiesCreated);
-            pstmt.setString(2,this.mapOAuth.get("oauth_consumer_key"));
+            pstmt.setString(2, mapOAuth.get("oauth_consumer_key"));
 
             pstmt.executeUpdate();
             exito = true;
