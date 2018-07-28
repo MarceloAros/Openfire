@@ -916,6 +916,10 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
     public Element tanteo(){
         //Elemento principal
         Element RegistryStanza = DocumentHelper.createElement(QName.get("query", "jabber:iq:register"));
+        RegistryStanza.addElement("username");
+        RegistryStanza.addElement("password");
+        RegistryStanza.addElement("email");
+        RegistryStanza.addElement("name");
 
         // Se crea el nodo <x xmlns='jabber:x:data' type='form'>
         DataForm registrationForm = new DataForm(DataForm.Type.form);
