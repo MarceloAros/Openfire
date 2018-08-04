@@ -20,11 +20,7 @@ import gnu.inet.encoding.Stringprep;
 import gnu.inet.encoding.StringprepException;
 
 import java.io.UnsupportedEncodingException;
-import java.security.SecureRandom;
 import java.sql.*;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
@@ -98,6 +94,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
     String[] consumerData;
     private static String oAuthConsumerSecret;
     private static Map<String, String> mapOAuth = new HashMap<String, String>();
+    private static String oAuthConsumerKey = "";
 
     private IQHandlerInfo info;
 
@@ -115,6 +112,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         userManager = server.getUserManager();
         rosterManager = server.getRosterManager();
 
+
+/*
         if (probeResult == null) {
             // Create the basic element of the probeResult which contains the basic registration
             // information (e.g. username, passoword and email)
@@ -123,8 +122,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             probeResult.addElement("password");
             probeResult.addElement("email");
             probeResult.addElement("name");
-            //
-            /*
+            ***
             probeResult.addElement("oauth_version");
             probeResult.addElement("oauth_signature_method");
             probeResult.addElement("oauth_token");
@@ -133,7 +131,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             probeResult.addElement("oauth_timestamp");
             probeResult.addElement("oauth_consumer_key");
             probeResult.addElement("oauth_signature");
-            */
+            ***
 
             // Create the registration form to include in the probeResult. The form will include
             // the basic information plus name and visibility of name and email.
@@ -179,7 +177,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             fieldPwd.setLabel("Password");
             fieldPwd.setRequired(true);
 
-            /* ########   INICIO    ########## */
+            ########   INICIO    ##########
             if (isRegisterOAuthEnabled()) {
                 // Generate tokens with high entropy tokens
                 this.mapOAuth.put("oauth_version", "1.0");
@@ -239,9 +237,10 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                 fieldOAuthSignature.setRequired(true);
             }
 
-            // Add the registration form to the probe result.
+            ** Add the registration form to the probe result.**
             probeResult.add(registrationForm.getElement());
         }
+        */
 
         JiveGlobals.migrateProperty("register.inband");
         JiveGlobals.migrateProperty("register.inband.oauth1");
@@ -336,7 +335,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
                     reply.setTo((JID) null);
                     //reply.setChildElement(probeResult.createCopy());
-                    reply.setChildElement(tanteo().createCopy());
+                    reply.setChildElement(createProbeResult().createCopy());
 
                 }
             }
@@ -512,21 +511,38 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                                 valores.get("oauth_consumer_key").trim() != "" &&
                                 valores.get("oauth_signature").trim() != "")
                             {
+                                //TODO: Arreglar borrando esta variable auxiliar
+                                oAuthConsumerKey = valores.get("oauth_consumer_key").trim();
+
                                 Log.warn("%%%%%%%%%%%%%% ENTRÉ en el IF condición %%%%%%%%%%%");
                                 this.consumerData = checkOAuthConsumer(valores.get("oauth_consumer_key"));
                                 // Si el consumerKey proporcionado por el cliente no esta en nuestros registros
+
                                 if (this.consumerData == null){
                                     Log.error("No se ha encontrado consumerKey");
                                     throw new UnauthorizedException();
                                 }
-                                else {
+
+                                /*if (valores.get("oauth_consumer_key").equalsIgnoreCase("testKey")) {
+
+                                }*/
+                                else
+                                    {
                                     this.oAuthConsumerSecret = this.consumerData[1];
 
                                     if (!calculateSignature(new TreeMap<String, String>(mapOAuth), packet.getFrom().toString().trim()).equals(valores.get("oauth_signature").trim())
                                         || Integer.parseInt(this.consumerData[1]) == Integer.parseInt(this.consumerData[2])){
+                                        //TODO: Descomentar linea inferior
+                                        /*
                                         Log.warn("\n\nError al registrar NUEVA cuenta:\n\tConsumer Secret: " + this.consumerData[0] + "\n\tamountOfIdentities: " + this.consumerData[1] + "\n\tidentitiesCreates: " + this.consumerData[3]);
                                         throw new UnauthorizedException();
+                                        */
+
                                     }
+                                    if (Integer.parseInt(consumerData[1]) <= Integer.parseInt(consumerData[2]))
+                                        throw new UnauthorizedException();
+
+                                    Log.warn("%%%%%%%   LINEA 542     %%%%%%%%%%%");
                                 }
                             }
                             else{
@@ -625,10 +641,11 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                         }
                         else {
                             // Create the new account
-
+                            Log.warn("------  LLEGUE casi creando cuenta Linea 641  ------");
                             if (oAuthEnabled){
-                                if (this.updateConsumerIdentities(1 + Integer.parseInt(this.consumerData[2]))){
+                                if (this.updateConsumerIdentities()){
                                     // TODO: ESTA PASANDO HASTA AQUI, CUANDO NO DEBIESE LLEGAR PORQUE NO LE ENTREGO KEY NI FIRMAial
+                                    Log.warn("Agregando nuevo usuario con username" + username + " & password: " + password);
                                     newUser = userManager.createUser(username, password, name, email);
                                 }
                             } else {
@@ -650,7 +667,11 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
                 if (isRegisterOAuthEnabled()){
                     reply = IQ.createResultIQ(packet);
                     reply.setChildElement(packet.getChildElement().createCopy());
+
                     PacketError pe = new PacketError(PacketError.Condition.bad_request, PacketError.Type.modify, "You have not provided consumer credentials, or these are not valid");
+                    if (consumerData.length > 0)
+                        if (Integer.parseInt(consumerData[1]) <= Integer.parseInt(consumerData[2]))
+                            pe = new PacketError(PacketError.Condition.bad_request, PacketError.Type.modify, "The consumer credentials provided are not allowed to create identities");
                     reply.setError(pe);
                 }
                 else {
@@ -784,8 +805,8 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         return hash.toString();
     }
 
-    // Comprueba si el 'secret' del consumer corresponde al ingresado
-    public String[] checkOAuthConsumer(String oAuthConsumerSecret) {
+    // Comprueba si el 'ConsumerKey'. Si existe devuelve los valores como un arreglo
+    public String[] checkOAuthConsumer(String consumerkey) {
         String[] result = null;
         String JDBC_SELECT = "SELECT consumerSecret, amountOfIdentities, identitiesCreates  from ofOAuth where consumerKey = ?";
 
@@ -796,6 +817,7 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         try {
             con = DbConnectionManager.getConnection();
             pstmt = con.prepareStatement(JDBC_SELECT);
+            pstmt.setString(1, consumerkey);
             rs = pstmt.executeQuery();
 
             if (rs.next()){
@@ -821,17 +843,16 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         return result;
     }
 
-    public boolean updateConsumerIdentities(int amountIdentiesCreated) {
+    public boolean updateConsumerIdentities() {
         boolean exito = false;
-        String JDBC_UPDATE = "UPDATE Customers SET amountOfIdentities = ? WHERE CustomerID = ?";
+        String JDBC_UPDATE = "UPDATE ofOAuth SET identitiesCreates = identitiesCreates + 1 WHERE consumerKey = ?";
         Connection con = null;
         PreparedStatement pstmt = null;
 
         try {
             con = DbConnectionManager.getConnection();
             pstmt = con.prepareStatement(JDBC_UPDATE);
-            pstmt.setInt(1, amountIdentiesCreated);
-            pstmt.setString(2, mapOAuth.get("oauth_consumer_key"));
+            pstmt.setString(1, oAuthConsumerKey);
 
             pstmt.executeUpdate();
             exito = true;
@@ -912,14 +933,17 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         return table;
     }
 
-
-    public Element tanteo(){
+    /***
+     *
+     * @return inside the Element all the need fields to register a new account
+     */
+    public Element createProbeResult(){
         //Elemento principal
-        Element RegistryStanza = DocumentHelper.createElement(QName.get("query", "jabber:iq:register"));
-        RegistryStanza.addElement("username");
-        RegistryStanza.addElement("password");
-        RegistryStanza.addElement("email");
-        RegistryStanza.addElement("name");
+        probeResult = DocumentHelper.createElement(QName.get("query", "jabber:iq:register"));
+        probeResult.addElement("username");
+        probeResult.addElement("password");
+        probeResult.addElement("email");
+        probeResult.addElement("name");
 
         // Se crea el nodo <x xmlns='jabber:x:data' type='form'>
         DataForm registrationForm = new DataForm(DataForm.Type.form);
@@ -929,9 +953,11 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
         FormField fieldForm = registrationForm.addField();
         fieldForm.setVariable("FORM_TYPE");
         fieldForm.setType(FormField.Type.hidden);
-        fieldForm.addValue("jabber:iq:register");
+
         if (isRegisterOAuthEnabled()){
             fieldForm.addValue("urn:xmpp:xdata:signature:oauth1");
+        } else {
+            fieldForm.addValue("jabber:iq:register");
         }
 
 
@@ -965,49 +991,49 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
 
         if (isRegisterOAuthEnabled()){
             // Generate tokens with high entropy tokens
-            this.mapOAuth.put("oauth_version", "1.0");
-            this.mapOAuth.put("oauth_signature_method","HMAC-SHA256");
-            this.mapOAuth.put("oauth_token",StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
-            this.mapOAuth.put("oauth_token_secret", StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
-            this.mapOAuth.put("oauth_nonce", StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
-            this.mapOAuth.put("oauth_timestamp", "" + (new Timestamp(System.currentTimeMillis())).getTime());
-            this.mapOAuth.put("oauth_consumer_key", "");
-            this.mapOAuth.put("oauth_signature", "");
+            mapOAuth.put("oauth_version", "1.0");
+            mapOAuth.put("oauth_signature_method","HMAC-SHA256");
+            mapOAuth.put("oauth_token",StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
+            mapOAuth.put("oauth_token_secret", StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
+            mapOAuth.put("oauth_nonce", StringUtils.hash(UUID.randomUUID().toString(), "SHA-256"));
+            mapOAuth.put("oauth_timestamp", "" + (new Timestamp(System.currentTimeMillis())).getTime());
+            mapOAuth.put("oauth_consumer_key", "");
+            mapOAuth.put("oauth_signature", "");
 
 
             final FormField fieldOAuthVersion = registrationForm.addField();
             fieldOAuthVersion.setVariable("oauth_version");
             fieldOAuthVersion.setType(FormField.Type.hidden);
-            fieldOAuthVersion.addValue(this.mapOAuth.get("oauth_version"));
+            fieldOAuthVersion.addValue(mapOAuth.get("oauth_version"));
 
             final FormField fieldOAuthSignatureMethod = registrationForm.addField();
             fieldOAuthSignatureMethod.setVariable("oauth_signature_method");
             fieldOAuthSignatureMethod.setType(FormField.Type.hidden);
-            fieldOAuthSignatureMethod.addValue(this.mapOAuth.get("oauth_signature_method"));
+            fieldOAuthSignatureMethod.addValue(mapOAuth.get("oauth_signature_method"));
 
             final FormField fieldOAuthToken = registrationForm.addField();
             fieldOAuthToken.setVariable("oauth_token");
             fieldOAuthToken.setType(FormField.Type.hidden);
             fieldOAuthToken.setLabel("OAuth Token");
-            fieldOAuthToken.addValue(this.mapOAuth.get("oauth_token"));
+            fieldOAuthToken.addValue(mapOAuth.get("oauth_token"));
             fieldOAuthToken.setRequired(true);
 
             final FormField fieldOAuthSecretToken = registrationForm.addField();
             fieldOAuthSecretToken.setVariable("oauth_token_secret");
             fieldOAuthSecretToken.setType(FormField.Type.hidden);
-            fieldOAuthSecretToken.addValue(this.mapOAuth.get("oauth_token_secret"));
+            fieldOAuthSecretToken.addValue(mapOAuth.get("oauth_token_secret"));
             fieldOAuthSecretToken.setRequired(true);
 
             final FormField fieldOAuthNonce = registrationForm.addField();
             fieldOAuthNonce.setVariable("oauth_nonce");
             fieldOAuthNonce.setType(FormField.Type.hidden);
-            fieldOAuthNonce.addValue(this.mapOAuth.get("oauth_nonce"));
+            fieldOAuthNonce.addValue(mapOAuth.get("oauth_nonce"));
             fieldOAuthNonce.setRequired(true);
 
             final FormField fieldOAuthTimestamp = registrationForm.addField();
             fieldOAuthTimestamp.setVariable("oauth_timestamp");
             fieldOAuthTimestamp.setType(FormField.Type.hidden);
-            fieldOAuthTimestamp.addValue(this.mapOAuth.get("oauth_timestamp"));
+            fieldOAuthTimestamp.addValue(mapOAuth.get("oauth_timestamp"));
             fieldOAuthTimestamp.setRequired(true);
 
             final FormField fieldOAuthConsumerKey = registrationForm.addField();
@@ -1022,11 +1048,9 @@ public class IQRegisterHandler extends IQHandler implements ServerFeaturesProvid
             fieldOAuthSignature.setRequired(true);
         }
 
-        RegistryStanza.add(registrationForm.getElement());
-        return RegistryStanza;
+        probeResult.add(registrationForm.getElement());
+        return probeResult;
     }
-
-
 
     @Override
     public IQHandlerInfo getInfo() {
